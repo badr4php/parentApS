@@ -1,44 +1,46 @@
 <?php
 
 namespace App\Models;
+use Illuminate\Http\Request;
+use App\Services\DataProviderX;
+use App\Services\DataProviderY;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-
-class User extends Authenticatable
+class User
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    private $providers;
+    private $collection;
+    private $request;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    public function __construct(Request $request)
+    {
+        $this->collection = collect();
+        $this->request = $request;
+        $this->setProviders();
+    }
+    private function setProviders(){
+        if($this->request->filled('provider')){
+            switch ($this->request->get('provider')) {
+                case 'DataProviderX':
+                    $this->providers = [new DataProviderX()];
+                  break;
+                case 'DataProviderY':
+                    $this->providers = [new DataProviderY()];
+                  break;
+                default:
+                $this->providers = [];
+              } 
+        }else{
+            $this->providers = [
+                new DataProviderX(),
+                new DataProviderY()
+            ];
+        }
+    }
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-    ];
+    public function list(){
+        foreach($this->providers as $provider){
+            $this->collection = $this->collection->concat($provider->list($this->request));
+        }
+        return $this->collection;
+    }
 }
